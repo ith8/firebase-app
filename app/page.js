@@ -28,88 +28,89 @@ const style = {
   gap: 3,
 }
 
-export default function Home() {
-  const [inventory, setInventory] = useState([])
-  const [open, setOpen] = useState(false)
-  const [itemName, setItemName] = useState('')
-  const updateInventory = async () => {
-    const snapshot = query(collection(firestore, 'inventory'))
-    const docs = await getDocs(snapshot)
-    const inventoryList = []
-    docs.forEach((doc) => {
-      inventoryList.push({ name: doc.id, ...doc.data() })
-    })
-    setInventory(inventoryList)
+export default function Inventory() {
+  const [items, setItems] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+
+  const fetchItems = async () => {
+    const inventoryRef = query(collection(firestore, 'inventory'));
+    const inventorySnapshot = await getDocs(inventoryRef);
+    const inventoryList = inventorySnapshot.docs.map(doc => ({
+      id: doc.id,
+      quantity: doc.data().quantity,
+    }));
+    setItems(inventoryList);
   }
-  
+
   useEffect(() => {
-    updateInventory()
-  }, [])
-  
-  const addItem = async (item) => {
-    const docRef = doc(collection(firestore, 'inventory'), item)
-    const docSnap = await getDoc(docRef)
-    if (docSnap.exists()) {
-      const { quantity } = docSnap.data()
-      await setDoc(docRef, { quantity: quantity + 1 })
-    } else {
-      await setDoc(docRef, { quantity: 1 })
-    }
-    await updateInventory()
+    fetchItems();
+  }, []);
+
+  const addItem = async (itemName) => {
+    const itemRef = doc(collection(firestore, 'inventory'), itemName);
+    const itemSnapshot = await getDoc(itemRef);
+
+    const newQuantity = itemSnapshot.exists() ? itemSnapshot.data().quantity + 1 : 1;
+    await setDoc(itemRef, { quantity: newQuantity });
+
+    setNewItemName('');
+    setIsModalOpen(false);
+    fetchItems();
   }
-  
-  const removeItem = async (item) => {
-    const docRef = doc(collection(firestore, 'inventory'), item)
-    const docSnap = await getDoc(docRef)
-    if (docSnap.exists()) {
-      const { quantity } = docSnap.data()
+
+  const removeItem = async (itemId) => {
+    const itemRef = doc(collection(firestore, 'inventory'), itemId);
+    const itemSnapshot = await getDoc(itemRef);
+
+    if (itemSnapshot.exists()) {
+      const { quantity } = itemSnapshot.data();
       if (quantity === 1) {
-        await deleteDoc(docRef)
+        await deleteDoc(itemRef);
       } else {
-        await setDoc(docRef, { quantity: quantity - 1 })
+        await setDoc(itemRef, { quantity: quantity - 1 });
       }
     }
-    await updateInventory()
+    fetchItems();
   }
-  
-  const handleOpen = () => setOpen(true)
-  const handleClose = () => setOpen(false)
-  
+
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
+
   return (
     <Box
       width="100vw"
       height="100vh"
-      display={'flex'}
-      justifyContent={'center'}
-      flexDirection={'column'}
-      alignItems={'center'}
+      display="flex"
+      justifyContent="center"
+      flexDirection="column"
+      alignItems="center"
       gap={2}
     >
       <Modal
-        open={open}
-        onClose={handleClose}
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
+        open={isModalOpen}
+        onClose={closeModal}
+        aria-labelledby="modal-title"
+        aria-describedby="modal-description"
       >
         <Box sx={style}>
-          <Typography id="modal-modal-title" variant="h6" component="h2">
+          <Typography id="modal-title" variant="h6" component="h2">
             Add Item
           </Typography>
-          <Stack width="100%" direction={'row'} spacing={2}>
+          <Stack width="100%" direction="row" spacing={2}>
             <TextField
               id="outlined-basic"
               label="Item"
               variant="outlined"
               fullWidth
-              value={itemName}
-              onChange={(e) => setItemName(e.target.value)}
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
             />
             <Button
               variant="outlined"
               onClick={() => {
-                addItem(itemName)
-                setItemName('')
-                handleClose()
+                addItem(newItemName);
+                closeModal();
               }}
             >
               Add
@@ -117,7 +118,7 @@ export default function Home() {
           </Stack>
         </Box>
       </Modal>
-      <Button variant="contained" onClick={handleOpen}>
+      <Button variant="contained" onClick={openModal}>
         Add New Item
       </Button>
       <Box border={'1px solid #333'}>
@@ -125,33 +126,33 @@ export default function Home() {
           width="800px"
           height="100px"
           bgcolor={'#ADD8E6'}
-          display={'flex'}
-          justifyContent={'center'}
-          alignItems={'center'}
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
         >
           <Typography variant={'h2'} color={'#333'} textAlign={'center'}>
             Inventory Items
           </Typography>
         </Box>
         <Stack width="800px" height="300px" spacing={2} overflow={'auto'}>
-          {inventory.map(({name, quantity}) => (
+          {items.map(({ id, quantity }) => (
             <Box
-              key={name}
+              key={id}
               width="100%"
               minHeight="150px"
-              display={'flex'}
-              justifyContent={'space-between'}
-              alignItems={'center'}
+              display="flex"
+              justifyContent="space-between"
+              alignItems="center"
               bgcolor={'#f0f0f0'}
               paddingX={5}
             >
               <Typography variant={'h3'} color={'#333'} textAlign={'center'}>
-                {name.charAt(0).toUpperCase() + name.slice(1)}
+                {id.charAt(0).toUpperCase() + id.slice(1)}
               </Typography>
               <Typography variant={'h3'} color={'#333'} textAlign={'center'}>
                 Quantity: {quantity}
               </Typography>
-              <Button variant="contained" onClick={() => removeItem(name)}>
+              <Button variant="contained" onClick={() => removeItem(id)}>
                 Remove
               </Button>
             </Box>
@@ -159,5 +160,5 @@ export default function Home() {
         </Stack>
       </Box>
     </Box>
-  )
+  );
 }
